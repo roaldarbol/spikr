@@ -1,0 +1,12 @@
+name: spikr
+title: spikr
+username:
+account: roaldarbol
+server: shinyapps.io
+hostUrl: https://api.shinyapps.io/v1
+appId: 2811176
+bundleId: 3634896
+url: https://roaldarbol.shinyapps.io/spikr/
+when: 1600254442.12575
+asMultiple: FALSE
+asStatic: FALSE
