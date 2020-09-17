@@ -1,8 +1,3 @@
-library(ggplot2)
-library(ggpubr)
-library(png)
-library(grid)
-
 # Define server logic required to draw a histogram
 shinyServer(function(input, output) {
   
@@ -18,12 +13,31 @@ shinyServer(function(input, output) {
   input_data <- reactive({
     ext <- as.character(tools::file_ext(input$files[[1, 'datapath']]))
     
+    # Something here gives the error: Warning: Error in if: argument is of length zero
+    # However, it works just fine.
     if (ext == 'csv'){
       dataFiles <- lapply(input$files[['datapath']], read.csv)
     } else if (ext == 'xlsx'){
       dataFiles <- lapply(input$files[['datapath']], readxl::read_xlsx)
     }
     return(dataFiles)
+  })
+  
+  allData <- reactive({
+    ext <- as.character(tools::file_ext(input$allFiles[[1, 'datapath']]))
+    
+    if (ext == 'csv'){
+      dataFiles <- lapply(input$allFiles[['datapath']], read.csv)
+    } else if (ext == 'xlsx'){
+      dataFiles <- lapply(input$allFiles[['datapath']], readxl::read_xlsx)
+    }
+    
+    dataFilesAll <- data.frame()
+    for (i in 1:length(dataFiles)){
+      dataFilesAll <- rbind(dataFilesAll, dataFiles[[i]])
+    }
+    
+    return(dataFilesAll)
   })
 
   # Wrangle the uploaded data ----
@@ -105,6 +119,15 @@ shinyServer(function(input, output) {
     },
     content = function(file) {
       ggsave(file, figure(), width = 40, height = 15, units = 'cm', device = 'png')
+    }
+  )
+  
+  output$exportAll <- downloadHandler(
+    filename = function() {
+      paste(input$datatype, 'all.csv', sep="_")
+    },
+    content = function(file) {
+      write.csv(allData(), file)
     }
   )
   

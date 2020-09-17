@@ -29,10 +29,20 @@ smooth_it <- function(data, xvar, yvar, smooth){
 wrangle_data <- function(data, x, y, fps, smooth, invert, which, threshold, thres.type, remove, info) {
   
   dataFiles <- data
-  
-  # workdir <- '/Users/roaldarbol/Documents/nivenlab/drosophila/Data/15-03-20_exp6_part1_WT_CyD_min'
-  # setwd(workdir)
-  # dataFiles <- lapply(Sys.glob(sprintf("*.csv")), read.csv)
+
+  # if (dev == TRUE){
+  #   workdir <- '/Users/roaldarbol/Documents/nivenlab/drosophila/Data/15-03-20_exp6_part1_WT_CyD_min'
+  #   setwd(workdir)
+  #   dataFiles <- lapply(Sys.glob(sprintf("*.csv")), read.csv)
+  #   x <- 'Time'
+  #   y <- 'Kurt'
+  #   fps <- 23.7
+  #   smooth <- 0.1
+  #   invert <- FALSE
+  #   threshold <- 0.1
+  #   thres.type <- 'Mean'
+  #   remove <- '4.1'
+  # }
   
   
   if (class(dataFiles) != 'list'){
@@ -99,60 +109,62 @@ wrangle_data <- function(data, x, y, fps, smooth, invert, which, threshold, thre
         l.sel <- troughs[[i]][troughs[[i]]<peaks[[i]][j]]
         l <- closest(l.sel, peaks[[i]][j])
         spike_timing[[i]]$trough_time_before[j] <- df.Smooth[[i]]$xvar[l]
-      } else {
-        spike_timing[[i]]$trough_time_before[j] <- NA
       }
       
       if (!is_empty(troughs[[i]][troughs[[i]]>peaks[[i]][j]])){
         u.sel <- troughs[[i]][troughs[[i]]>peaks[[i]][j]]
         u <- closest(u.sel, peaks[[i]][j])
         spike_timing[[i]]$trough_time_after[j] <- df.Smooth[[i]]$xvar[u]
-      } else {
-        spike_timing[[i]]$trough_time_after[j] <- NA
       }
     }
     
     if (thres.type == "Mean"){
       spike_timing[[i]] <- spike_timing[[i]] %>%
-        filter(spike_timing[[i]]$peak > (raw_summary[[i]]$value.mean + threshold)) %>%
-        mutate(spike_interval = peak_time - lag(peak_time),
-               spike_rate = 1/spike_interval)
+        filter(spike_timing[[i]]$peak > (raw_summary[[i]]$value.mean + threshold))
+      if (nrow(spike_timing[[i]]) > 0){
+        spike_timing[[i]] <- spike_timing[[i]] %>%
+          mutate(spike_interval = peak_time - lag(peak_time),
+                 spike_rate = 1/spike_interval)
+      }
     } else if (thres.type == "Minimum"){
-      spike_timing[[i]] <- spike_timing[[i]] %>%
-        filter(spike_timing[[i]]$peak > (raw_summary[[i]]$value.min + threshold)) %>%
-        mutate(spike_interval = peak_time - lag(peak_time),
-               spike_rate = 1/spike_interval)
+        spike_timing[[i]] <- spike_timing[[i]] %>%
+          filter(spike_timing[[i]]$peak > (raw_summary[[i]]$value.min + threshold))
+        if (nrow(spike_timing[[i]]) > 0){
+          spike_timing[[i]] <- spike_timing[[i]] %>%
+            mutate(spike_interval = peak_time - lag(peak_time),
+                   spike_rate = 1/spike_interval)
+        }
     }
     
     spike_timing[[i]] <- spike_timing[[i]] %>%
       mutate(half_time = trough_time_before + (peak_time - trough_time_before)/2)
     
-    spike_timing[[i]]$half_height <- NA
-    spike_timing[[i]]$half_width <- NA
-    for (j in 1:nrow(spike_timing[[i]])){
-      if (!is.na(spike_timing[[i]]$half_time[[j]])){
-        suppressWarnings(spike_timing[[i]]$half_time[j] <- closest(df.Smooth[[i]]$xvar, spike_timing[[i]]$half_time[j]))
-        spike_timing[[i]]$half_height[j] <- df.Smooth[[i]]$yvar[which(df.Smooth[[i]]$xvar == spike_timing[[i]]$half_time[j])]
-        l <- which(df.Smooth[[i]]$xvar == spike_timing[[i]]$peak_time[j])
-        u <- which(df.Smooth[[i]]$xvar == spike_timing[[i]]$trough_time_after[j])
-        if (!is_empty(l) & !is_empty(u)){
-          sel <- df.Smooth[[i]][l:u,]
-          close <- sel$yvar[smaller(sel$yvar, spike_timing[[i]]$half_height[[j]])]
-          half_after_time <- sel$xvar[sel$yvar == close]
-          spike_timing[[i]]$half_width[j] <- (half_after_time - spike_timing[[i]]$half_time[[j]])
+    if (nrow(spike_timing[[i]]) > 0){
+      for (j in 1:nrow(spike_timing[[i]])){
+        if (!is.na(spike_timing[[i]]$half_time[[j]])){
+          suppressWarnings(spike_timing[[i]]$half_time[j] <- closest(df.Smooth[[i]]$xvar, spike_timing[[i]]$half_time[j]))
+          suppressWarnings(spike_timing[[i]]$half_height[j] <- df.Smooth[[i]]$yvar[which(df.Smooth[[i]]$xvar == spike_timing[[i]]$half_time[j])])
+          l <- which(df.Smooth[[i]]$xvar == spike_timing[[i]]$peak_time[j])
+          u <- which(df.Smooth[[i]]$xvar == spike_timing[[i]]$trough_time_after[j])
+          if (!is_empty(l) & !is_empty(u)){
+            sel <- df.Smooth[[i]][l:u,]
+            close <- sel$yvar[smaller(sel$yvar, spike_timing[[i]]$half_height[[j]])]
+            half_after_time <- sel$xvar[sel$yvar == close]
+            suppressWarnings(spike_timing[[i]]$half_width[j] <- (half_after_time - spike_timing[[i]]$half_time[[j]]))
+          } else {
+            suppressWarnings(spike_timing[[i]]$half_width[j] <- NA)
+          }
         } else {
-          spike_timing[[i]]$half_width[j] <- NA
-        }      
-      } else {
-        spike_timing[[i]]$half_height[j] <- NA
-        spike_timing[[i]]$half_width[j] <- NA
+          suppressWarnings(spike_timing[[i]]$half_height[j] <- NA)
+          suppressWarnings(spike_timing[[i]]$half_width[j] <- NA)
+        }
       }
+      
+      get_rid_of <- c('half_time', 'half_height')
+      spike_timing[[i]] <- spike_timing[[i]] %>%
+        select(!all_of(get_rid_of)) %>%
+        mutate(minute = i)
     }
-    
-    get_rid_of <- c('half_time', 'half_height')
-    spike_timing[[i]] <- spike_timing[[i]] %>%
-      select(!all_of(get_rid_of)) %>%
-      mutate(minute = i)
   }
   
   # Remove false peaks
@@ -173,15 +185,26 @@ wrangle_data <- function(data, x, y, fps, smooth, invert, which, threshold, thre
   }
   
   # Spike summary list
-  for (i in 1:length(dataFiles)){    
-    spike_summary.list[[i]] <- spike_timing[[i]] %>%
-      summarise(SpikeRate_mean = mean(spike_rate, na.rm = TRUE),
-                SpikeRate_SD = sd(spike_rate, na.rm = TRUE),
-                HalfWidth_mean = mean(half_width, na.rm = TRUE),
-                HalfWidth_SD = sd(half_width, na.rm = TRUE)
-      ) %>%
-      mutate(minute = i)
-    spike_summary <- bind_rows(spike_summary, spike_summary.list[[i]])
+  for (i in 1:length(spike_timing)){
+    if (nrow(spike_timing[[i]] > 0)){
+      spike_summary.list[[i]] <- spike_timing[[i]] %>%
+        summarise(SpikeRate_mean = mean(spike_rate, na.rm = TRUE),
+                  SpikeRate_SD = sd(spike_rate, na.rm = TRUE),
+                  HalfWidth_mean = mean(half_width, na.rm = TRUE),
+                  HalfWidth_SD = sd(half_width, na.rm = TRUE)
+        ) %>%
+        mutate(minute = i)
+      spike_summary <- bind_rows(spike_summary, spike_summary.list[[i]])
+    }
+  }
+  
+  for (i in 1:length(dataFiles)){
+    if (!any(spike_summary$minute == i)){
+      spike_summary[(nrow(spike_summary)+1), ] <- NA
+      spike_summary[nrow(spike_summary), 'minute'] <- i
+      spike_summary <- spike_summary %>%
+        arrange(minute)
+    }
   }
   
   for (i in 1:length(dataFiles)){
@@ -190,6 +213,8 @@ wrangle_data <- function(data, x, y, fps, smooth, invert, which, threshold, thre
                             xvar, 
                             0))
   }
+  
+
   
   # Prepare a smooth file for plotting
   dataSmooth <- list()

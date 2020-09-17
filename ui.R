@@ -19,7 +19,7 @@ top <- fluidRow(
            splitLayout(
                cellWidths = c(300, 400),
                cellArgs = list(style = "padding: 20px"),
-               fileInput("files", "Choose CSV File",
+               fileInput("files", "Choose Data Files",
                          multiple = TRUE,
                          accept = c(
                              "text/csv",
@@ -122,6 +122,30 @@ bottom <- fluidRow(
     )
 )
 
+# Merge Tab ----
+merger <- fluidRow(
+    column(width = 6,
+           offset = 4,
+           cellWidths = 300,
+           cellArgs = list(style = "padding: 20px"),
+           fileInput("allFiles", "Choose Data Files",
+                     multiple = TRUE,
+                     accept = c(
+                         "text/csv",
+                         "text/comma-separated-values,text/plain",
+                         ".csv", '.xlsx')
+           ),
+           selectInput(
+               "datatype", "Data Type",
+               c("Summary" = 'summary',
+                 "Spike Timing" = 'spike_timing',
+                 "Metadata" = 'metadata')
+           ),
+           downloadButton("exportAll", "Export Data", class = "btn-success")
+    )
+)
+
+
 # UI ----
 shinyUI(
     navbarPage(title = 'spikr',
@@ -132,7 +156,8 @@ shinyUI(
                         bottom,
                         middle,
                         top),
-               tabPanel('Merge')
+               tabPanel('Merge',
+                        merger)
     )
 )
 
