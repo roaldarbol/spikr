@@ -121,23 +121,35 @@ wrangle_data <- function(data, x, y, fps, smooth, invert, which, threshold, thre
     if (thres.type == "Mean"){
       spike_timing[[i]] <- spike_timing[[i]] %>%
         filter(spike_timing[[i]]$peak > (raw_summary[[i]]$value.mean + threshold))
-      if (nrow(spike_timing[[i]]) > 0){
-        spike_timing[[i]] <- spike_timing[[i]] %>%
-          mutate(spike_interval = peak_time - lag(peak_time),
-                 spike_rate = 1/spike_interval)
-      }
     } else if (thres.type == "Minimum"){
-        spike_timing[[i]] <- spike_timing[[i]] %>%
-          filter(spike_timing[[i]]$peak > (raw_summary[[i]]$value.min + threshold))
-        if (nrow(spike_timing[[i]]) > 0){
-          spike_timing[[i]] <- spike_timing[[i]] %>%
-            mutate(spike_interval = peak_time - lag(peak_time),
-                   spike_rate = 1/spike_interval)
-        }
+      spike_timing[[i]] <- spike_timing[[i]] %>%
+        filter(spike_timing[[i]]$peak > (raw_summary[[i]]$value.min + threshold))
     }
-    
+  }
+  
+  # Remove specified peaks
+  need.remove <- list()
+  j <- as.numeric(unlist(regmatches(remove, gregexpr("(?>-)*[[:digit:]]+\\.*[[:digit:]]*", remove, perl=TRUE))))
+  j <- unique(unlist(lapply(j, function(x) as.integer(x))))
+  for (i in j){
+    # Modified solution from https://stackoverflow.com/questions/19252663/extracting-decimal-numbers-from-a-string
+    need.remove[[i]] <- unlist(regmatches(remove,gregexpr(paste0(i, "+\\.[[:digit:]]*"), remove)))
+    vector.temp <- vector()
+    for (j in 1:length(need.remove[[i]])){
+      df.temp <- unlist(strsplit(need.remove[[i]][[j]], split='.', fixed=TRUE))
+      vector.temp <- c(vector.temp, as.numeric(df.temp[2]))
+    }
+    need.remove[[i]] <- sort(vector.temp)
     spike_timing[[i]] <- spike_timing[[i]] %>%
-      mutate(half_time = trough_time_before + (peak_time - trough_time_before)/2)
+      filter(!row_number() %in% need.remove[[i]])
+  }
+  
+  # Find half width ----
+  for (i in 1:length(dataFiles)){    
+    spike_timing[[i]] <- spike_timing[[i]] %>%
+      mutate(spike_interval = peak_time - lag(peak_time),
+             spike_rate = 1/spike_interval,
+             half_time = trough_time_before + (peak_time - trough_time_before)/2)
     
     if (nrow(spike_timing[[i]]) > 0){
       for (j in 1:nrow(spike_timing[[i]])){
@@ -166,25 +178,9 @@ wrangle_data <- function(data, x, y, fps, smooth, invert, which, threshold, thre
         mutate(minute = i)
     }
   }
+
   
-  # Remove false peaks
-  need.remove <- list()
-  j <- as.numeric(unlist(regmatches(remove, gregexpr("(?>-)*[[:digit:]]+\\.*[[:digit:]]*", remove, perl=TRUE))))
-  j <- unique(unlist(lapply(j, function(x) as.integer(x))))
-  for (i in j){
-    # Modified solution from https://stackoverflow.com/questions/19252663/extracting-decimal-numbers-from-a-string
-    need.remove[[i]] <- unlist(regmatches(remove,gregexpr(paste0(i, "+\\.[[:digit:]]*"), remove)))
-    vector.temp <- vector()
-    for (j in 1:length(need.remove[[i]])){
-      df.temp <- unlist(strsplit(need.remove[[i]][[j]], split='.', fixed=TRUE))
-      vector.temp <- c(vector.temp, as.numeric(df.temp[2]))
-    }
-    need.remove[[i]] <- sort(vector.temp)
-    spike_timing[[i]] <- spike_timing[[i]] %>%
-      filter(!row_number() %in% need.remove[[i]])
-  }
-  
-  # Spike summary list
+  # Spike summary list ----
   for (i in 1:length(spike_timing)){
     if (nrow(spike_timing[[i]] > 0)){
       spike_summary.list[[i]] <- spike_timing[[i]] %>%
