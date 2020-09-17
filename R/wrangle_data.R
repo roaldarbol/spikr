@@ -63,13 +63,16 @@ wrangle_data <- function(data, x, y, fps, smooth, invert, which, threshold, thre
   for (i in 1:length(dataFiles)){
     raw_summary[[i]] <- tibble()  
     raw_summary[[i]] <- dataFiles[[i]] %>%
-      summarise(value.max = max(yvar))
+      summarise(value.max = max(abs(yvar)),
+                value.min = min(abs(yvar)),
+                val.mid = value.max - (value.max - value.min)/2)
   }
   
   # Inverting
   if (invert == TRUE){
     for (i in as.numeric(which)){
-      dataFiles[[i]]$yvar <- -dataFiles[[i]]$yvar + abs(raw_summary[[i]]$value.max)
+      signs <- sign(mean(dataFiles[[i]]$yvar))
+      dataFiles[[i]]$yvar <- ((-(dataFiles[[i]]$yvar - (signs * raw_summary[[i]]$val.mid))) + (signs * raw_summary[[i]]$val.mid))
     }
   }
   
@@ -172,7 +175,7 @@ wrangle_data <- function(data, x, y, fps, smooth, invert, which, threshold, thre
         }
       }
       
-      get_rid_of <- c('half_time', 'half_height')
+      get_rid_of <- c('spike_interval', 'half_time', 'half_height')
       spike_timing[[i]] <- spike_timing[[i]] %>%
         select(!all_of(get_rid_of)) %>%
         mutate(minute = i)
@@ -237,7 +240,7 @@ wrangle_data <- function(data, x, y, fps, smooth, invert, which, threshold, thre
         mutate(minute = i,
                smooth = smooth,
                threshold = threshold,
-               inverted = if_else(i %in% invert, "Yes", "No", missing="No"),
+               inverted = if_else(invert == TRUE & i %in% which, "Yes", "No", missing="No"),
                # removed = if_else(length(need.remove[[i]]) > 0, paste(need.remove[[i]], sep = "", collapse = ", "), "none")
         )
     metadata <- bind_rows(metadata, current.metadata)
