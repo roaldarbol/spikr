@@ -34,15 +34,18 @@ wrangle_data <- function(data, x, y, fps, smooth, smooth.cons, invert, which, rm
   #   workdir <- '/Users/roaldarbol/Desktop/temp'
   #   setwd(workdir)
   #   dataFiles <- lapply(Sys.glob(sprintf("*.csv")), read.csv)
-  #   x <- 'Time'
-  #   y <- 'Kurt'
-  #   fps <- 23.7
-  #   smooth <- 0.1
-  #   invert <- FALSE
-  #   min.height <- 0.1
-  #   threshold <- 0.1
-  #   thres.type <- 'Mean'
-  #   remove <- '4.1'
+    # x <- 'Time'
+    # y <- 'Kurt'
+    # fps <- 23.7
+    # smooth <- TRUE
+    # smooth.cons <- 0.2
+    # invert <- FALSE
+    # which <- c()
+    # rm.duplicates <- TRUE
+    # min.height <- 0.1
+    # threshold <- 0.1
+    # thres.type <- 'Mean'
+    # remove <- '4.1'
   # }
   
   
@@ -116,6 +119,7 @@ wrangle_data <- function(data, x, y, fps, smooth, smooth.cons, invert, which, rm
     spike_timing[[i]]$trough_time_after <- NA
     spike_timing[[i]]$min_spike_height <- NA
     spike_timing[[i]]$max_spike_height <- NA
+    spike_timing[[i]]$mean_spike_height <- NA
     
     # Long piece for finding the troughs on either side of a peak
     for (j in 1:length(peaks[[i]])){
@@ -139,6 +143,7 @@ wrangle_data <- function(data, x, y, fps, smooth, smooth.cons, invert, which, rm
       peak <- spike_timing[[i]]$peak[j]
       spike_timing[[i]]$min_spike_height[j] <- min(c((peak-h.before), (peak-h.after)))
       spike_timing[[i]]$max_spike_height[j] <- max(c((peak-h.before), (peak-h.after)))
+      spike_timing[[i]]$mean_spike_height[j] <- (max(c((peak-h.before), (peak-h.after))) + min(c((peak-h.before), (peak-h.after))))/2
     }
     
     # Find half width 
@@ -190,8 +195,8 @@ wrangle_data <- function(data, x, y, fps, smooth, smooth.cons, invert, which, rm
       need.remove <- c()
       for (j in 1:(nrow(spike_timing[[i]])-1)){
         if (spike_timing[[i]]$trough_time_after[j] == spike_timing[[i]]$trough_time_before[j+1] 
-            # && spike_timing[[i]]$min_spike_height[j] < min.height 
-            # && spike_timing[[i]]$min_spike_height[j+1] < min.height
+            && spike_timing[[i]]$mean_spike_height[j] < min.height
+            && spike_timing[[i]]$mean_spike_height[j+1] < min.height
         ){
           lowest <- which.min(c(spike_timing[[i]]$peak[j], spike_timing[[i]]$peak[j+1]))
           which.rm <- ifelse(lowest == 1, j, j+1)
@@ -305,9 +310,12 @@ wrangle_data <- function(data, x, y, fps, smooth, smooth.cons, invert, which, rm
         mutate(minute = i,
                smooth = smooth,
                smooth.cons = smooth.cons,
+               threshold.type = thres.type,
                threshold = threshold,
                inverted = if_else(invert == TRUE & i %in% which, "Yes", "No", missing="No"),
-               # removed = if_else(length(need.remove[[i]]) > 0, paste(need.remove[[i]], sep = "", collapse = ", "), "none")
+               rm.duplicates = rm.duplicates,
+               min.height = min.height,
+               removed = if_else(remove == '', remove, "none")
         )
     metadata <- bind_rows(metadata, current.metadata)
     }

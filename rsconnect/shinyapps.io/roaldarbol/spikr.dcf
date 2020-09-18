@@ -5,8 +5,8 @@ account: roaldarbol
 server: shinyapps.io
 hostUrl: https://api.shinyapps.io/v1
 appId: 2811176
-bundleId: 3643193
+bundleId: 3643703
 url: https://roaldarbol.shinyapps.io/spikr/
-when: 1600423196.16261
+when: 1600435117.835
 asMultiple: FALSE
 asStatic: FALSE

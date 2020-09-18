@@ -1,6 +1,14 @@
 # Define server logic required to draw a histogram
 shinyServer(function(input, output) {
   
+  # UI elements ----
+  output$which <- renderUI({
+    choice <-  seq(1:length(input_data()))
+    checkboxGroupInput("which", "Which to invert?",
+                       choices = choice,
+                       selected = c(1:length(choice)),
+                       inline = TRUE)
+  })
   # Detect uploaded files ----
   output$fileUploaded <- reactive({
     if(!is.null(input$files)) 
@@ -89,9 +97,21 @@ shinyServer(function(input, output) {
     return(figure)
   })
   
+  # power <- reactive({
+  #   power <- power_plot(data = wrangled_data()[2],
+  #                       xvar = ,
+  #                       yvar = 'yvar',
+  #                       fps = input$rate)
+  #   return(power)
+  # })
+  
   output$plot <- renderPlot({
     figure()
   })
+  
+  # output$power <- renderPlot({
+  #   power()
+  # })
   
   # Elements generated for export with downloadButton ----
   name <- reactive({

@@ -15,12 +15,24 @@ library(shinyjs)
 
 # Top panel ----
 top <- fluidRow(
-    column(width = 12,
+    column(width = 11,
            conditionalPanel(condition="input.goButton",
-                            
-                            # Action button
-                            plotOutput("plot"),
-                            tableOutput('summary')
+                            tabsetPanel(
+                                tabPanel("Plot",
+                                         column(width = 12,
+                                                conditionalPanel(condition="input.goButton",
+                                                                 plotOutput("plot")
+                                                )
+                                         )
+                                ),
+                                tabPanel("Summary",
+                                         column(width = 12,
+                                                conditionalPanel(condition="input.goButton",
+                                                                 tableOutput("summary")
+                                                )
+                                         )
+                                )
+                            )
            )
     )
 )
@@ -69,15 +81,7 @@ middle <- fluidRow(
                             # Inverting
                             conditionalPanel(
                                 condition = "input.invert",
-                                checkboxGroupInput("which", "Which to invert?",
-                                                   c("1" = 1,
-                                                     "2" = 2,
-                                                     "3" = 3,
-                                                     "4" = 4,
-                                                     "5" = 5,
-                                                     "6" = 6),
-                                                   selected = c(1:6),
-                                                   inline = TRUE)
+                                uiOutput('which')
                             ),
                             
                             # Manual selection
