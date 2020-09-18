@@ -15,18 +15,12 @@ library(shinyjs)
 
 # Top panel ----
 top <- fluidRow(
-    column(width = 6,
-           splitLayout(
-               cellWidths = c(300, 400),
-               cellArgs = list(style = "padding: 20px"),
-               fileInput("files", "Choose Data Files",
-                         multiple = TRUE,
-                         accept = c(
-                             "text/csv",
-                             "text/comma-separated-values,text/plain",
-                             ".csv", '.xlsx')
-                         ),
-               textInput('expID', 'Experiment ID', value = NA, placeholder = 'Seperate with commas. E.g. date, exp, treatment')
+    column(width = 12,
+           conditionalPanel(condition="input.goButton",
+                            
+                            # Action button
+                            plotOutput("plot"),
+                            tableOutput('summary')
            )
     )
 )
@@ -39,32 +33,33 @@ middle <- fluidRow(
                             # Settings for automated spike selection
                             # Split layout 1
                             splitLayout(
-                                cellWidths = 150,
+                                cellWidths = 170,
                                 cellArgs = list(style = "padding: 6px"),
                                 
                                 textInput("xvar", "X Variable", "Time"),
                                 textInput("yvar", "Y Variable", "Kurt"),
-                                numericInput("rate", "Frame Rate:", value = 23.7, min = 1, max = 10000, step = 10)
-                                ),
-                            
-                            # Split layout 2
-                                splitLayout(
-                                    cellWidths = 150,
-                                    cellArgs = list(style = "padding: 6px"),
-                                    
-
-                                    numericInput("smooth", "Smoothing Constant:", value = 0.1, min = 0, max = 1, step = 0.01),
-                                    numericInput("threshold", "Threshold:", value = 0.01, min = 0, max = 1, step = 0.01),
-                                    selectInput(
-                                        "thresholdtype", "Threshold Type",
-                                        choices = c("Minimum", "Mean"),
-                                        selected = 'Mean'
-                                    )
+                                numericInput("rate", "Frame Rate:", value = 23.7, min = 1, max = 10000, step = 10),
+                                numericInput("smooth.cons", "Smoothing Constant:", value = 0.1, min = 0, max = 1, step = 0.01)
+                            ),
+                            splitLayout(
+                                cellWidths = 170,
+                                cellArgs = list(style = "padding: 6px"),
+                                
+                                numericInput("min.height", "Min. spike height:", value = 0.1, min = 0, max = 1, step = 0.01),
+                                numericInput("threshold", "Threshold:", value = 0.01, min = 0, max = 1, step = 0.01),
+                                selectInput(
+                                    "thresholdtype", "Threshold Type",
+                                    choices = c("Minimum", "Mean"),
+                                    selected = 'Mean'
+                                )
                             ),
                             
                             splitLayout(
-                                cellWidths = c(150, 150, 175, 300),
+                                cellWidths = c(170, 150, 150),
                                 cellArgs = list(style = "padding: 6px"),
+                                
+                                checkboxInput("duplicates", "Remove duplicates?", TRUE),
+                                checkboxInput("smooth", "Smooth data?", TRUE),
                                 checkboxInput("invert", "Needs Inverting", FALSE),
                                 checkboxInput("manual", "Manual Removal", FALSE)
                                 
@@ -103,21 +98,24 @@ middle <- fluidRow(
                                 
                             )
            )
-    ),
-    
-    column(width = 6,
-           conditionalPanel(condition="input.goButton",
-                            tableOutput('summary'))),
+    )
 )
 
 
 # Bottom ----
 bottom <- fluidRow(
-    column(width = 12,
-           conditionalPanel(condition="input.goButton",
-                            
-                            # Action button
-                            plotOutput("doublePlot", height = '400px')
+    column(width = 6,
+           splitLayout(
+               cellWidths = c(300, 400),
+               cellArgs = list(style = "padding: 20px"),
+               fileInput("files", "Choose Data Files",
+                         multiple = TRUE,
+                         accept = c(
+                             "text/csv",
+                             "text/comma-separated-values,text/plain",
+                             ".csv", '.xlsx')
+               ),
+               textInput('expID', 'Experiment ID', value = NA, placeholder = 'Seperate with commas. E.g. date, exp, treatment')
            )
     )
 )
@@ -153,9 +151,9 @@ shinyUI(
                collapsible = TRUE,
                id="nav",
                tabPanel("Analyze", 
-                        bottom,
+                        top,
                         middle,
-                        top),
+                        bottom),
                tabPanel('Merge',
                         merger)
     )

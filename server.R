@@ -3,10 +3,17 @@ shinyServer(function(input, output) {
   
   # Detect uploaded files ----
   output$fileUploaded <- reactive({
-    if(!is.null(input$files)) return(TRUE)
+    if(!is.null(input$files)) 
+      return(TRUE)
   })
   
   outputOptions(output, 'fileUploaded', suspendWhenHidden=FALSE)
+  
+  output$smoothed <- reactive({
+    smoothed <- input
+    return(smoothed)
+  })
+
   
   
   # Import the uploaded data ----
@@ -49,9 +56,12 @@ shinyServer(function(input, output) {
                  x = input$xvar, 
                  y = input$yvar,
                  smooth = input$smooth,
+                 smooth.cons = input$smooth.cons,
                  fps = input$rate,
                  invert = input$invert,
                  which = input$which,
+                 rm.duplicates = input$duplicates,
+                 min.height = input$min.height,
                  threshold = input$threshold,
                  thres.type = input$thresholdtype,
                  remove = input$manual.remove,
@@ -65,17 +75,21 @@ shinyServer(function(input, output) {
   })
   
   figure <- reactive({
-    raw <- spike_plot(data = wrangled_data()[1], 
+    raw_fig <- spike_plot(data = wrangled_data()[1], 
                       xvar = input$xvar,
                       yvar = input$yvar)
-    spike <- spike_plot(data = wrangled_data()[2], 
-                        xvar = input$xvar,
-                        yvar = input$yvar)
-    figure <- ggpubr::ggarrange(raw, spike, nrow = 2, ncol = 1)
+    if (isolate(input$smooth) == TRUE){
+      smooth_fig <- spike_plot(data = wrangled_data()[2], 
+                          xvar = input$xvar,
+                          yvar = input$yvar)
+      figure <- ggpubr::ggarrange(raw_fig, smooth_fig, nrow = 2, ncol = 1)
+    } else {
+      figure <- ggpubr::ggarrange(raw_fig, nrow = 1, ncol = 1)
+    }
     return(figure)
   })
   
-  output$doublePlot <- renderPlot({
+  output$plot <- renderPlot({
     figure()
   })
   

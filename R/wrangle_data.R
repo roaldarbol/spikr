@@ -1,9 +1,9 @@
-smooth_it <- function(data, xvar, yvar, smooth){
+smooth_it <- function(data, xvar, yvar, smooth.cons){
   df <- list()
   df.Smooth <- list()
   
   for (i in 1:length(data)){
-    df[[i]] <- smooth.spline(data[[i]][[yvar]], spar = smooth)
+    df[[i]] <- smooth.spline(data[[i]][[yvar]], spar = smooth.cons)
     df.Smooth[[i]] <- tibble(.rows = length(df[[i]]$y))
     df.Smooth[[i]]$yvar <- df[[i]]$y
     df.Smooth[[i]]$xvar <- data[[i]]$xvar
@@ -26,12 +26,12 @@ smooth_it <- function(data, xvar, yvar, smooth){
 }
 
 
-wrangle_data <- function(data, x, y, fps, smooth, invert, which, threshold, thres.type, remove, info) {
+wrangle_data <- function(data, x, y, fps, smooth, smooth.cons, invert, which, rm.duplicates, min.height, threshold, thres.type, remove, info) {
   
   dataFiles <- data
 
   # if (dev == TRUE){
-  #   workdir <- '/Users/roaldarbol/Documents/nivenlab/drosophila/Data/15-03-20_exp6_part1_WT_CyD_min'
+  #   workdir <- '/Users/roaldarbol/Desktop/temp'
   #   setwd(workdir)
   #   dataFiles <- lapply(Sys.glob(sprintf("*.csv")), read.csv)
   #   x <- 'Time'
@@ -39,6 +39,7 @@ wrangle_data <- function(data, x, y, fps, smooth, invert, which, threshold, thre
   #   fps <- 23.7
   #   smooth <- 0.1
   #   invert <- FALSE
+  #   min.height <- 0.1
   #   threshold <- 0.1
   #   thres.type <- 'Mean'
   #   remove <- '4.1'
@@ -55,38 +56,46 @@ wrangle_data <- function(data, x, y, fps, smooth, invert, which, threshold, thre
              minute = i) 
     dataFiles[[i]]$yvar <- dataFiles[[i]][[y]]
     dataFiles[[i]]$xvar <- dataFiles[[i]][[x]]
+    
+    # Remove a whole column of NA's
+    col.remove <- c()
+    for (j in 1:length(dataFiles[[i]])){
+      if (all(is.na(dataFiles[[i]][j]))){
+        col.remove <- c(col.remove, j)
+      }
+    }
+    dataFiles[[i]][col.remove] <- list(NULL)
+    
+    # Remove remaining NA observations
     dataFiles[[i]] <- na.exclude(dataFiles[[i]])
   }
   
-  # Raw summary - used in inverting
+
+  # Inverting ----
   raw_summary <- list()
-  for (i in 1:length(dataFiles)){
-    raw_summary[[i]] <- tibble()  
-    raw_summary[[i]] <- dataFiles[[i]] %>%
-      summarise(value.max = max(abs(yvar)),
-                value.min = min(abs(yvar)),
-                val.mid = value.max - (value.max - value.min)/2)
-  }
-  
-  # Inverting
   if (invert == TRUE){
+    for (i in 1:length(dataFiles)){
+      raw_summary[[i]] <- tibble()  
+      raw_summary[[i]] <- dataFiles[[i]] %>%
+        summarise(value.max = max(abs(yvar)),
+                  value.min = min(abs(yvar)),
+                  val.mid = value.max - (value.max - value.min)/2)
+    }
+    
     for (i in as.numeric(which)){
       signs <- sign(mean(dataFiles[[i]]$yvar))
       dataFiles[[i]]$yvar <- ((-(dataFiles[[i]]$yvar - (signs * raw_summary[[i]]$val.mid))) + (signs * raw_summary[[i]]$val.mid))
     }
   }
   
-  # Thresholding prereq.
-  for (i in 1:length(dataFiles)){
-    raw_summary[[i]] <- tibble()  
-    raw_summary[[i]] <- dataFiles[[i]] %>%
-      summarise(value.max = max(yvar),
-                value.min = min(yvar),
-                value.mean = mean(yvar))
+  
+  # Data smoothing ----
+  if (smooth == TRUE){
+    df.Smooth <- smooth_it(dataFiles, 'xvar', 'yvar', smooth.cons)
+  } else {
+    df.Smooth <- dataFiles
   }
   
-  # Data smoothing
-  df.Smooth <- smooth_it(dataFiles, 'xvar', 'yvar', smooth)
   
   # 4.Find spike timing and rate ----
   peaks <- list()
@@ -105,6 +114,8 @@ wrangle_data <- function(data, x, y, fps, smooth, invert, which, threshold, thre
     spike_timing[[i]]$peak <- df.Smooth[[i]]$yvar[peaks[[i]]]
     spike_timing[[i]]$trough_time_before <- NA
     spike_timing[[i]]$trough_time_after <- NA
+    spike_timing[[i]]$min_spike_height <- NA
+    spike_timing[[i]]$max_spike_height <- NA
     
     # Long piece for finding the troughs on either side of a peak
     for (j in 1:length(peaks[[i]])){
@@ -119,40 +130,20 @@ wrangle_data <- function(data, x, y, fps, smooth, invert, which, threshold, thre
         u <- closest(u.sel, peaks[[i]][j])
         spike_timing[[i]]$trough_time_after[j] <- df.Smooth[[i]]$xvar[u]
       }
+      
+      # Prerequisite for selection based on spike height
+      which.before <- which(df.Smooth[[i]]$xvar == spike_timing[[i]]$trough_time_before[j])
+      which.after <- which(df.Smooth[[i]]$xvar == spike_timing[[i]]$trough_time_after[j])
+      h.before <- df.Smooth[[i]]$yvar[which.before]
+      h.after <- df.Smooth[[i]]$yvar[which.after]
+      peak <- spike_timing[[i]]$peak[j]
+      spike_timing[[i]]$min_spike_height[j] <- min(c((peak-h.before), (peak-h.after)))
+      spike_timing[[i]]$max_spike_height[j] <- max(c((peak-h.before), (peak-h.after)))
     }
     
-    if (thres.type == "Mean"){
-      spike_timing[[i]] <- spike_timing[[i]] %>%
-        filter(spike_timing[[i]]$peak > (raw_summary[[i]]$value.mean + threshold))
-    } else if (thres.type == "Minimum"){
-      spike_timing[[i]] <- spike_timing[[i]] %>%
-        filter(spike_timing[[i]]$peak > (raw_summary[[i]]$value.min + threshold))
-    }
-  }
-  
-  # Remove specified peaks
-  need.remove <- list()
-  j <- as.numeric(unlist(regmatches(remove, gregexpr("(?>-)*[[:digit:]]+\\.*[[:digit:]]*", remove, perl=TRUE))))
-  j <- unique(unlist(lapply(j, function(x) as.integer(x))))
-  for (i in j){
-    # Modified solution from https://stackoverflow.com/questions/19252663/extracting-decimal-numbers-from-a-string
-    need.remove[[i]] <- unlist(regmatches(remove,gregexpr(paste0(i, "+\\.[[:digit:]]*"), remove)))
-    vector.temp <- vector()
-    for (j in 1:length(need.remove[[i]])){
-      df.temp <- unlist(strsplit(need.remove[[i]][[j]], split='.', fixed=TRUE))
-      vector.temp <- c(vector.temp, as.numeric(df.temp[2]))
-    }
-    need.remove[[i]] <- sort(vector.temp)
+    # Find half width 
     spike_timing[[i]] <- spike_timing[[i]] %>%
-      filter(!row_number() %in% need.remove[[i]])
-  }
-  
-  # Find half width ----
-  for (i in 1:length(dataFiles)){    
-    spike_timing[[i]] <- spike_timing[[i]] %>%
-      mutate(spike_interval = peak_time - lag(peak_time),
-             spike_rate = 1/spike_interval,
-             half_time = trough_time_before + (peak_time - trough_time_before)/2)
+      mutate(half_time = trough_time_before + (peak_time - trough_time_before)/2)
     
     if (nrow(spike_timing[[i]]) > 0){
       for (j in 1:nrow(spike_timing[[i]])){
@@ -175,12 +166,86 @@ wrangle_data <- function(data, x, y, fps, smooth, invert, which, threshold, thre
         }
       }
       
-      get_rid_of <- c('spike_interval', 'half_time', 'half_height')
-      spike_timing[[i]] <- spike_timing[[i]] %>%
-        select(!all_of(get_rid_of)) %>%
-        mutate(minute = i)
+      get_rid_of <- c('half_time', 'half_height')
+      spike_timing[[i]] <- spike_timing[[i]][,!(names(spike_timing[[i]]) %in% get_rid_of)]
     }
   }
+  
+  # Filter out spikes ----
+  #' Filters out rogue spikes in 3 ways:
+  #' 1. The height of the shortest slope of the spike > min.height.
+  #' 2. Removes duplicate spikes.
+  #' 3. By introducing a universal threshold that spike peaks must exceed.
+  #' 
+  
+  # Thresholding prereq.
+  for (i in 1:length(dataFiles)){  
+    
+    # By spike height - gets rid of small squiggly spikes
+    spike_timing[[i]] <- spike_timing[[i]] %>%
+      filter(spike_timing[[i]]$max_spike_height > min.height)
+    
+    # Choose 1 of two adjacent spikes
+    if (rm.duplicates == TRUE){
+      need.remove <- c()
+      for (j in 1:(nrow(spike_timing[[i]])-1)){
+        if (spike_timing[[i]]$trough_time_after[j] == spike_timing[[i]]$trough_time_before[j+1] 
+            # && spike_timing[[i]]$min_spike_height[j] < min.height 
+            # && spike_timing[[i]]$min_spike_height[j+1] < min.height
+        ){
+          lowest <- which.min(c(spike_timing[[i]]$peak[j], spike_timing[[i]]$peak[j+1]))
+          which.rm <- ifelse(lowest == 1, j, j+1)
+          need.remove <- c(need.remove, which.rm)
+        }
+      }
+      
+      if (!is.null(need.remove)){
+        spike_timing[[i]] <- spike_timing[[i]][-need.remove,]
+      }
+    }
+    
+    
+    
+    # By threshold
+    raw_summary[[i]] <- tibble()  
+    raw_summary[[i]] <- dataFiles[[i]] %>%
+      summarise(value.max = max(yvar),
+                value.min = min(yvar),
+                value.mean = mean(yvar))
+    
+    if (thres.type == "Mean"){
+      spike_timing[[i]] <- spike_timing[[i]] %>%
+        filter(spike_timing[[i]]$peak > (raw_summary[[i]]$value.mean + threshold))
+    } else if (thres.type == "Minimum"){
+      spike_timing[[i]] <- spike_timing[[i]] %>%
+        filter(spike_timing[[i]]$peak > (raw_summary[[i]]$value.min + threshold))
+    }
+  }
+  
+  # Remove specified peaks
+  need.remove <- list()
+  t <- as.numeric(unlist(regmatches(remove, gregexpr("(?>-)*[[:digit:]]+\\.*[[:digit:]]*", remove, perl=TRUE))))
+  t <- unique(unlist(lapply(t, function(x) as.integer(x))))
+  for (i in t){
+    # Modified solution from https://stackoverflow.com/questions/19252663/extracting-decimal-numbers-from-a-string
+    need.remove[[i]] <- unlist(regmatches(remove,gregexpr(paste0(i, "+\\.[[:digit:]]*"), remove)))
+    vector.temp <- vector()
+    for (j in 1:length(need.remove[[i]])){
+      df.temp <- unlist(strsplit(need.remove[[i]][[j]], split='.', fixed=TRUE))
+      vector.temp <- c(vector.temp, as.numeric(df.temp[2]))
+    }
+    need.remove[[i]] <- sort(vector.temp)
+    spike_timing[[i]] <- spike_timing[[i]] %>%
+      filter(!row_number() %in% need.remove[[i]])
+  }
+  
+  # Finish by calculating spike rate
+  for (i in 1:length(spike_timing)){
+    spike_timing[[i]] <- spike_timing[[i]] %>%
+      mutate(spike_rate = 1/(peak_time - lag(peak_time)))
+  }
+  
+  
 
   
   # Spike summary list ----
@@ -239,6 +304,7 @@ wrangle_data <- function(data, x, y, fps, smooth, invert, which, threshold, thre
         slice(1) %>%
         mutate(minute = i,
                smooth = smooth,
+               smooth.cons = smooth.cons,
                threshold = threshold,
                inverted = if_else(invert == TRUE & i %in% which, "Yes", "No", missing="No"),
                # removed = if_else(length(need.remove[[i]]) > 0, paste(need.remove[[i]], sep = "", collapse = ", "), "none")

@@ -33,7 +33,8 @@ spike_plot <- function(data, xvar, yvar, threshold){
             legend.position = c(.27,.84),
             axis.line.x.bottom = element_line(colour = "black", size = .7),
             axis.line.y.left = element_line(colour = "black", size = .7),
-            text = element_text(family = "serif", size = 10)
+            text = element_text(family = "serif", size = 10),
+            aspect.ratio = 4/5
       ) -> plot
   return(plot)
 }
