@@ -51,19 +51,14 @@ middle <- fluidRow(
                                 textInput("xvar", "X Variable", "Time"),
                                 textInput("yvar", "Y Variable", "Kurt"),
                                 numericInput("rate", "Frame Rate:", value = 23.7, min = 1, max = 10000, step = 10),
-                                numericInput("smooth.cons", "Smoothing Constant:", value = 0.1, min = 0, max = 1, step = 0.01)
-                            ),
-                            splitLayout(
-                                cellWidths = 170,
-                                cellArgs = list(style = "padding: 6px"),
+                                numericInput("min.height", "Outlier criteria, SD:", value = 2, min = 0, max = 10, step = 0.1)
+                                # numericInput("threshold", "Threshold:", value = 0.01, min = 0, max = 1, step = 0.01),
+                                # selectInput(
+                                #     "thresholdtype", "Threshold Type",
+                                #     choices = c("Minimum", "Mean"),
+                                #     selected = 'Mean'
+                                # )
                                 
-                                numericInput("min.height", "Min. spike height:", value = 0.1, min = 0, max = 1, step = 0.01),
-                                numericInput("threshold", "Threshold:", value = 0.01, min = 0, max = 1, step = 0.01),
-                                selectInput(
-                                    "thresholdtype", "Threshold Type",
-                                    choices = c("Minimum", "Mean"),
-                                    selected = 'Mean'
-                                )
                             ),
                             
                             splitLayout(
@@ -88,6 +83,12 @@ middle <- fluidRow(
                             conditionalPanel(
                                 condition = "input.manual",
                                 textInput('manual.remove', 'Remove Spikes', value = NA, placeholder = 'Type spikes to remove, ie. 1.2, 1.5')
+                            ),
+                            
+                            # Smoothing constant
+                            conditionalPanel(
+                                condition = 'input.smooth',
+                                numericInput("smooth.cons", "Smoothing Constant:", value = 0.01, min = 0, max = 1, step = 0.01)
                             )
            ),
            conditionalPanel(condition="output.fileUploaded",
@@ -154,6 +155,7 @@ shinyUI(
                theme = shinytheme("flatly"), 
                collapsible = TRUE,
                id="nav",
+               tabPanel("Introduction", uiOutput("introduction")),
                tabPanel("Analyze", 
                         top,
                         middle,

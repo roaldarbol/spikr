@@ -14,7 +14,7 @@ power_plot <- function(data, xvar, yvar, fps){
   }
   
   power_plot <- ggplot(data = spectr, aes(x=spx, y=spy, group = trial, color = trial)) +
-    geom_smooth(span = 0.5) +
+    geom_smooth(span = 0.2) +
     scale_x_continuous(limits = c(0,4)) +
     scale_colour_viridis_d() +
     theme_minimal()

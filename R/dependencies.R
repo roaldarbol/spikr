@@ -6,3 +6,4 @@ library(ggpubr) # ::ggarrange
 library(png) # ::writePNG
 library(grid)
 library(spectral)
+library(plotly)

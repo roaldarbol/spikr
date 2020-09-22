@@ -36,5 +36,6 @@ spike_plot <- function(data, xvar, yvar, threshold){
             text = element_text(family = "serif", size = 10),
             aspect.ratio = 4/5
       ) -> plot
+    # plot <- plotly::ggplotly(plot)
   return(plot)
 }

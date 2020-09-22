@@ -9,6 +9,11 @@ shinyServer(function(input, output) {
                        selected = c(1:length(choice)),
                        inline = TRUE)
   })
+  
+  output$introduction <- renderUI({
+    includeMarkdown("Rmd/Introduction.Rmd")
+  })
+  
   # Detect uploaded files ----
   output$fileUploaded <- reactive({
     if(!is.null(input$files)) 
@@ -69,9 +74,9 @@ shinyServer(function(input, output) {
                  invert = input$invert,
                  which = input$which,
                  rm.duplicates = input$duplicates,
-                 min.height = input$min.height,
-                 threshold = input$threshold,
-                 thres.type = input$thresholdtype,
+                 outlier.sd = input$min.height,
+                 # threshold = input$threshold,
+                 # thres.type = input$thresholdtype,
                  remove = input$manual.remove,
                  info = input$expID)
       )

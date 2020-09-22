@@ -1,3 +1,35 @@
+---
+title: "Replication"
+author: "Mikkel Roald-Arbøl"
+date: "9/19/2020"
+output: html_document
+runtime: shiny
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+```{r functions, include=FALSE}
+# Compute time ----
+f2s <- function(frame){
+  time <- frame * (1/input$rate)
+  return(time)
+}
+
+# Local maxima and minima ----
+localMaxima <- function(x) which(x - data.table::shift(x, 1) > 0  & x - data.table::shift(x, 1, type='lead') > 0)
+localMinima <- function(x) which(x - data.table::shift(x, 1) < 0  & x - data.table::shift(x, 1, type='lead') < 0)
+
+# Find closest value - either smaller, bigger or absolute ----
+smaller <- function(x, value) which.min(abs(value - replace(x, x>value, Inf)))
+bigger <- function(x, value) which.max(abs(value - replace(x, x>value, Inf)))
+closest<-function(x, value){
+  x[which(abs(x - value) == min(abs(x - value)))] 
+}
+
+# Smooth data ----
 smooth_it <- function(data, xvar, yvar, smooth.cons){
   df <- list()
   df.Smooth <- list()
@@ -11,43 +43,13 @@ smooth_it <- function(data, xvar, yvar, smooth.cons){
       df.Smooth[[i]]$minute <- data[[i]]$minute
     }
   }
-  
-  # Potential for Loess filter instead
-  # for (i in 1:length(data)){
-  #   df[[i]] <- loess(yvar ~ xvar, data[[i]], span = smooth)
-  #   df.Smooth[[i]] <- tibble(.rows = length(df[[i]]$fitted))
-  #   df.Smooth[[i]]$y_fitted <- df[[i]]$fitted
-  #   df.Smooth[[i]]$xvar <- df[[i]]$x
-  #   if (!is.null(data[[i]]$minute)){
-  #     df.Smooth[[i]]$minute <- data[[i]]$minute
-  #   }
-  # }
   return(df.Smooth)
 }
 
-
+# Long function that does all the work! ----
 wrangle_data <- function(data, x, y, fps, smooth, smooth.cons, invert, which, rm.duplicates, min.height, threshold, thres.type, remove, info) {
   
   dataFiles <- data
-
-  # if (dev == TRUE){
-  #   workdir <- '/Users/roaldarbol/Documents/nivenlab/drosophila/Data/15-03-20_exp2_part3_WT_CyD_min'
-  #   setwd(workdir)
-  #   dataFiles <- lapply(Sys.glob(sprintf("*.csv")), read.csv)
-  #   x <- 'Time'
-  #   y <- 'Kurt'
-  #   fps <- 23.7
-  #   smooth <- TRUE
-  #   smooth.cons <- 0.2
-  #   invert <- FALSE
-  #   which <- c()
-  #   rm.duplicates <- TRUE
-  #   min.height <- 0.1
-  #   threshold <- 0.1
-  #   thres.type <- 'Mean'
-  #   remove <- ''
-  # }
-  
   
   if (class(dataFiles) != 'list'){
     dataFiles <- list(dataFiles)
@@ -73,24 +75,21 @@ wrangle_data <- function(data, x, y, fps, smooth, smooth.cons, invert, which, rm
     dataFiles[[i]] <- na.exclude(dataFiles[[i]])
   }
   
-  # Make summary of data
-  raw_summary <- list()
-  for (i in 1:length(dataFiles)){
-    raw_summary[[i]] <- tibble()  
-    raw_summary[[i]] <- dataFiles[[i]] %>%
-      summarise(value.max = max(abs(yvar)),
-                value.min = min(abs(yvar)),
-                value.mid = value.max - (value.max - value.min)/2,
-                value.mean = mean(yvar),
-                value.sd = sd(yvar))
-  }
-  
-  
+
   # Inverting ----
+  raw_summary <- list()
   if (invert == TRUE){
+    for (i in 1:length(dataFiles)){
+      raw_summary[[i]] <- tibble()  
+      raw_summary[[i]] <- dataFiles[[i]] %>%
+        summarise(value.max = max(abs(yvar)),
+                  value.min = min(abs(yvar)),
+                  val.mid = value.max - (value.max - value.min)/2)
+    }
+    
     for (i in as.numeric(which)){
       signs <- sign(mean(dataFiles[[i]]$yvar))
-      dataFiles[[i]]$yvar <- ((-(dataFiles[[i]]$yvar - (signs * raw_summary[[i]]$value.mid))) + (signs * raw_summary[[i]]$value.mid))
+      dataFiles[[i]]$yvar <- ((-(dataFiles[[i]]$yvar - (signs * raw_summary[[i]]$val.mid))) + (signs * raw_summary[[i]]$val.mid))
     }
   }
   
@@ -180,29 +179,27 @@ wrangle_data <- function(data, x, y, fps, smooth, smooth.cons, invert, which, rm
   }
   
   # Filter out spikes ----
-  #' Filters out rogue spikes in 2 ways:
+  #' Filters out rogue spikes in 3 ways:
   #' 1. The height of the shortest slope of the spike > min.height.
   #' 2. Removes duplicate spikes.
-  #' No longer used: 3. By introducing a universal threshold that spike peaks must exceed.
+  #' 3. By introducing a universal threshold that spike peaks must exceed.
   #' 
   
   # Thresholding prereq.
   for (i in 1:length(dataFiles)){  
     
-    outlier <- raw_summary[[i]]$value.sd * min.height
-    
     # By spike height - gets rid of small squiggly spikes
     spike_timing[[i]] <- spike_timing[[i]] %>%
-      filter(spike_timing[[i]]$max_spike_height > outlier)
+      filter(spike_timing[[i]]$max_spike_height > min.height)
     
     # Choose 1 of two adjacent spikes
     if (rm.duplicates == TRUE){
       need.remove <- c()
-      if (nrow(spike_timing[[i]]) > 1){
+      if (nrow(spike_timing[[i]]) > 0){
         for (j in 1:(nrow(spike_timing[[i]])-1)){
           if (spike_timing[[i]]$trough_time_after[j] == spike_timing[[i]]$trough_time_before[j+1] 
-              # && spike_timing[[i]]$mean_spike_height[j] < outlier
-              # && spike_timing[[i]]$mean_spike_height[j+1] < outlier
+              && spike_timing[[i]]$mean_spike_height[j] < min.height
+              && spike_timing[[i]]$mean_spike_height[j+1] < min.height
           ){
             lowest <- which.min(c(spike_timing[[i]]$peak[j], spike_timing[[i]]$peak[j+1]))
             which.rm <- ifelse(lowest == 1, j, j+1)
@@ -218,16 +215,21 @@ wrangle_data <- function(data, x, y, fps, smooth, smooth.cons, invert, which, rm
     
     
     
-  #   # By threshold
-  #   if (thres.type == "Mean"){
-  #     spike_timing[[i]] <- spike_timing[[i]] %>%
-  #       filter(spike_timing[[i]]$peak > (raw_summary[[i]]$value.mean + threshold))
-  #   } else if (thres.type == "Minimum"){
-  #     spike_timing[[i]] <- spike_timing[[i]] %>%
-  #       filter(spike_timing[[i]]$peak > (raw_summary[[i]]$value.min + threshold))
-  #   }
-  
+    # By threshold
+    raw_summary[[i]] <- tibble()  
+    raw_summary[[i]] <- dataFiles[[i]] %>%
+      summarise(value.max = max(yvar),
+                value.min = min(yvar),
+                value.mean = mean(yvar))
+    
+    if (thres.type == "Mean"){
+      spike_timing[[i]] <- spike_timing[[i]] %>%
+        filter(spike_timing[[i]]$peak > (raw_summary[[i]]$value.mean + threshold))
+    } else if (thres.type == "Minimum"){
+      spike_timing[[i]] <- spike_timing[[i]] %>%
+        filter(spike_timing[[i]]$peak > (raw_summary[[i]]$value.min + threshold))
     }
+  }
   
   # Remove specified peaks
   need.remove <- list()
@@ -314,8 +316,8 @@ wrangle_data <- function(data, x, y, fps, smooth, smooth.cons, invert, which, rm
         mutate(minute = i,
                smooth = smooth,
                smooth.cons = smooth.cons,
-               # threshold.type = thres.type,
-               # threshold = threshold,
+               threshold.type = thres.type,
+               threshold = threshold,
                inverted = if_else(invert == TRUE & i %in% which, "Yes", "No", missing="No"),
                rm.duplicates = rm.duplicates,
                min.height = min.height,
@@ -358,7 +360,90 @@ wrangle_data <- function(data, x, y, fps, smooth, smooth.cons, invert, which, rm
       }
     }
   }
-
-  
   return(output)
 }
+
+# Make plot ----
+spike_plot <- function(data, xvar, yvar, threshold){
+
+  df.All <- tibble()
+  for (i in 1:length(data)){
+    df.All <- bind_rows(df.All, data[[i]])
+  }
+  
+  df.All <- df.All %>%
+    mutate(peak = if_else(peak == 0, NA_real_, peak))
+  
+  xmax <- max(df.All$xvar)
+  ymax <- max(df.All$yvar)
+  
+    ggplot(df.All, aes(x=xvar, y = yvar)) +
+      geom_line() +
+      #geom_rug(aes(peak), sides = "b") +
+      geom_vline(data = df.All, aes(xintercept = peak),
+                 alpha = .5,
+                 colour = "orange",
+                 linetype = 2,
+                 show.legend = FALSE) +
+      scale_x_continuous(limits = c(0,xmax),
+                         breaks = seq(0,xmax,1)
+      ) +
+      labs(x = "Time (s)",
+           y = paste("Image", yvar, "/ Cardiac contraction"),
+           title = "") +
+      facet_wrap(~ minute, nrow = 1) + #, scales = "free_y") +
+      theme(panel.background = element_blank(),
+            panel.grid = element_blank(),
+            legend.key = element_rect(colour = "black"),
+            legend.justification = c(1,0),
+            legend.position = c(.27,.84),
+            axis.line.x.bottom = element_line(colour = "black", size = .7),
+            axis.line.y.left = element_line(colour = "black", size = .7),
+            text = element_text(family = "serif", size = 10),
+            aspect.ratio = 4/5
+      ) -> plot
+  return(plot)
+}
+```
+
+This R Markdown document is made interactive using Shiny. Unlike the more traditional workflow of creating static reports, you can now create documents that allow your readers to change the assumptions underlying your analysis and see the results immediately. 
+
+To learn more, see [Interactive Documents](http://rmarkdown.rstudio.com/authoring_shiny.html).
+
+## Inputs and Outputs
+
+You can embed Shiny inputs and outputs in your document. Outputs are automatically updated whenever inputs change.  This demonstrates how a standard R plot can be made interactive by wrapping it in the Shiny `renderPlot` function. The `selectInput` and `sliderInput` functions create the input widgets used to drive the plot.
+
+```{r dataInput, echo=TRUE}
+inputPanel(
+  fileInput("files", "Choose Data Files",
+                         multiple = TRUE,
+                         accept = c(
+                             "text/csv",
+                             "text/comma-separated-values,text/plain",
+                             ".csv", '.xlsx')
+  )
+)
+```
+
+## Embedded Application
+
+It's also possible to embed an entire Shiny application within an R Markdown document using the `shinyAppDir` function. This example embeds a Shiny application located in another directory:
+
+```{r tabsets, echo=FALSE}
+shinyAppDir(
+  system.file("examples/06_tabsets", package = "shiny"),
+  options = list(
+    width = "100%", height = 550
+  )
+)
+```
+
+Note the use of the `height` parameter to determine how much vertical space the embedded application should occupy.
+
+You can also use the `shinyApp` function to define an application inline rather then in an external directory.
+
+In all of R code chunks above the `echo = FALSE` attribute is used. This is to prevent the R code within the chunk from rendering in the document alongside the Shiny components.
+
+
+

@@ -10,7 +10,7 @@ smaller <- function(x, value) which.min(abs(value - replace(x, x>value, Inf)))
 bigger <- function(x, value) which.max(abs(value - replace(x, x>value, Inf)))
 closest<-function(x, value){
   x[which(abs(x - value) == min(abs(x - value)))] 
-  }
+}
 # Alternative solutions ----
 
 # localMaxima <- function(x) {
