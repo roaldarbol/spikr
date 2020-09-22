@@ -51,7 +51,7 @@ middle <- fluidRow(
                                 textInput("xvar", "X Variable", "Time"),
                                 textInput("yvar", "Y Variable", "Kurt"),
                                 numericInput("rate", "Frame Rate:", value = 23.7, min = 1, max = 10000, step = 10),
-                                numericInput("min.height", "Outlier criteria, SD:", value = 2, min = 0, max = 10, step = 0.1)
+                                numericInput("min.height", "Outlier criteria, SD:", value = 2.5, min = 0, max = 10, step = 0.1)
                                 # numericInput("threshold", "Threshold:", value = 0.01, min = 0, max = 1, step = 0.01),
                                 # selectInput(
                                 #     "thresholdtype", "Threshold Type",

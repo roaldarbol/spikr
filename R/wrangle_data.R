@@ -81,7 +81,7 @@ wrangle_data <- function(data, x, y, fps, smooth, smooth.cons, invert, which, rm
       summarise(value.max = max(abs(yvar)),
                 value.min = min(abs(yvar)),
                 value.mid = value.max - (value.max - value.min)/2,
-                value.mean = mean(yvar),
+                value.median = median(yvar),
                 value.sd = sd(yvar))
   }
   
@@ -90,7 +90,7 @@ wrangle_data <- function(data, x, y, fps, smooth, smooth.cons, invert, which, rm
   if (invert == TRUE){
     for (i in as.numeric(which)){
       signs <- sign(mean(dataFiles[[i]]$yvar))
-      dataFiles[[i]]$yvar <- ((-(dataFiles[[i]]$yvar - (signs * raw_summary[[i]]$value.mid))) + (signs * raw_summary[[i]]$value.mid))
+      dataFiles[[i]]$yvar <- ((-(dataFiles[[i]]$yvar - (signs * raw_summary[[i]]$value.median))) + (signs * raw_summary[[i]]$value.median))
     }
   }
   
@@ -120,6 +120,8 @@ wrangle_data <- function(data, x, y, fps, smooth, smooth.cons, invert, which, rm
     spike_timing[[i]]$peak <- df.Smooth[[i]]$yvar[peaks[[i]]]
     spike_timing[[i]]$trough_time_before <- NA
     spike_timing[[i]]$trough_time_after <- NA
+    spike_timing[[i]]$pre_spike_height <- NA
+    spike_timing[[i]]$post_spike_height <- NA
     spike_timing[[i]]$min_spike_height <- NA
     spike_timing[[i]]$max_spike_height <- NA
     spike_timing[[i]]$mean_spike_height <- NA
@@ -144,9 +146,14 @@ wrangle_data <- function(data, x, y, fps, smooth, smooth.cons, invert, which, rm
       h.before <- df.Smooth[[i]]$yvar[which.before]
       h.after <- df.Smooth[[i]]$yvar[which.after]
       peak <- spike_timing[[i]]$peak[j]
-      spike_timing[[i]]$min_spike_height[j] <- min(c((peak-h.before), (peak-h.after)))
-      spike_timing[[i]]$max_spike_height[j] <- max(c((peak-h.before), (peak-h.after)))
-      spike_timing[[i]]$mean_spike_height[j] <- (max(c((peak-h.before), (peak-h.after))) + min(c((peak-h.before), (peak-h.after))))/2
+      
+      if (!is_empty(h.before) & !is_empty(h.after)){
+        spike_timing[[i]]$pre_spike_height[j] <- (peak-h.before)
+        spike_timing[[i]]$post_spike_height[j] <- (peak-h.after)
+        spike_timing[[i]]$min_spike_height[j] <- min(c((peak-h.before), (peak-h.after)))
+        spike_timing[[i]]$max_spike_height[j] <- max(c((peak-h.before), (peak-h.after)))
+        spike_timing[[i]]$mean_spike_height[j] <- (max(c((peak-h.before), (peak-h.after))) + min(c((peak-h.before), (peak-h.after))))/2
+      }
     }
     
     # Find half width 
@@ -201,8 +208,8 @@ wrangle_data <- function(data, x, y, fps, smooth, smooth.cons, invert, which, rm
       if (nrow(spike_timing[[i]]) > 1){
         for (j in 1:(nrow(spike_timing[[i]])-1)){
           if (spike_timing[[i]]$trough_time_after[j] == spike_timing[[i]]$trough_time_before[j+1] 
-              # && spike_timing[[i]]$mean_spike_height[j] < outlier
-              # && spike_timing[[i]]$mean_spike_height[j+1] < outlier
+              && spike_timing[[i]]$post_spike_height[j] < outlier
+              && spike_timing[[i]]$pre_spike_height[j+1] < outlier
           ){
             lowest <- which.min(c(spike_timing[[i]]$peak[j], spike_timing[[i]]$peak[j+1]))
             which.rm <- ifelse(lowest == 1, j, j+1)
