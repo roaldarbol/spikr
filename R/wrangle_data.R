@@ -78,11 +78,11 @@ wrangle_data <- function(data, x, y, fps, smooth, smooth.cons, invert, which, rm
   for (i in 1:length(dataFiles)){
     raw_summary[[i]] <- tibble()  
     raw_summary[[i]] <- dataFiles[[i]] %>%
-      summarise(value.max = max(abs(yvar)),
-                value.min = min(abs(yvar)),
+      summarise(value.max = max(abs(.data$yvar)),
+                value.min = min(abs(.data$yvar)),
                 value.mid = value.max - (value.max - value.min)/2,
-                value.median = median(yvar),
-                value.sd = sd(yvar))
+                value.median = median(.data$yvar),
+                value.sd = sd(.data$yvar))
   }
   
   

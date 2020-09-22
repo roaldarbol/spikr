@@ -22,12 +22,14 @@ spike_plot <- function(data, xvar, yvar, threshold){
       scale_x_continuous(limits = c(0,xmax),
                          breaks = seq(0,xmax,1)
       ) +
+      # scale_colour_distiller(palette = 'Spectral', guide = FALSE) +
       labs(x = "Time (s)",
            y = paste("Image", yvar, "/ Cardiac contraction"),
            title = "") +
       facet_wrap(~ minute, nrow = 1) + #, scales = "free_y") +
       theme(panel.background = element_blank(),
             panel.grid = element_blank(),
+            strip.background = element_rect(fill="#18bc9c"),
             legend.key = element_rect(colour = "black"),
             legend.justification = c(1,0),
             legend.position = c(.27,.84),
@@ -36,6 +38,5 @@ spike_plot <- function(data, xvar, yvar, threshold){
             text = element_text(family = "serif", size = 10),
             aspect.ratio = 4/5
       ) -> plot
-    # plot <- plotly::ggplotly(plot)
   return(plot)
 }

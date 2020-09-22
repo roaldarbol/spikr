@@ -14,6 +14,45 @@ shinyServer(function(input, output) {
     includeMarkdown("Rmd/Introduction.Rmd")
   })
   
+  # Observed events ----
+  
+  # observeEvent(input$files, {
+  #   shinyalert(
+  #     title = "Success!",
+  #     text = "Data uploaded",
+  #     size = "s", 
+  #     closeOnEsc = TRUE,
+  #     closeOnClickOutside = TRUE,
+  #     html = FALSE,
+  #     type = "success",
+  #     showConfirmButton = TRUE,
+  #     showCancelButton = FALSE,
+  #     confirmButtonText = "OK",
+  #     confirmButtonCol = "#AEDEF4",
+  #     timer = 1000,
+  #     imageUrl = "",
+  #     animation = TRUE
+  #   )
+  # })
+  
+  observeEvent(input$goButton, {
+    shinyalert(
+      title = "Processing...",
+      size = "s", 
+      closeOnEsc = TRUE,
+      closeOnClickOutside = TRUE,
+      html = FALSE,
+      type = "success",
+      showConfirmButton = FALSE,
+      showCancelButton = FALSE,
+      confirmButtonText = "OK",
+      confirmButtonCol = "#AEDEF4",
+      timer = 2500,
+      imageUrl = "",
+      animation = TRUE
+    )
+  })
+ 
   # Detect uploaded files ----
   output$fileUploaded <- reactive({
     if(!is.null(input$files)) 
