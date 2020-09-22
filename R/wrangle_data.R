@@ -26,7 +26,7 @@ smooth_it <- function(data, xvar, yvar, smooth.cons){
 }
 
 
-wrangle_data <- function(data, x, y, fps, smooth, smooth.cons, invert, which, rm.duplicates, min.height, threshold, thres.type, remove, info) {
+wrangle_data <- function(data, x, y, fps, smooth, smooth.cons, invert, which, rm.duplicates, outlier.sd, threshold, thres.type, remove, info) {
   
   dataFiles <- data
 
@@ -42,7 +42,7 @@ wrangle_data <- function(data, x, y, fps, smooth, smooth.cons, invert, which, rm
   #   invert <- FALSE
   #   which <- c()
   #   rm.duplicates <- TRUE
-  #   min.height <- 0.1
+  #   outlier.sd <- 0.1
   #   threshold <- 0.1
   #   thres.type <- 'Mean'
   #   remove <- ''
@@ -181,7 +181,7 @@ wrangle_data <- function(data, x, y, fps, smooth, smooth.cons, invert, which, rm
   
   # Filter out spikes ----
   #' Filters out rogue spikes in 2 ways:
-  #' 1. The height of the shortest slope of the spike > min.height.
+  #' 1. The height of the shortest slope of the spike > outlier.sd.
   #' 2. Removes duplicate spikes.
   #' No longer used: 3. By introducing a universal threshold that spike peaks must exceed.
   #' 
@@ -189,7 +189,7 @@ wrangle_data <- function(data, x, y, fps, smooth, smooth.cons, invert, which, rm
   # Thresholding prereq.
   for (i in 1:length(dataFiles)){  
     
-    outlier <- raw_summary[[i]]$value.sd * min.height
+    outlier <- raw_summary[[i]]$value.sd * outlier.sd
     
     # By spike height - gets rid of small squiggly spikes
     spike_timing[[i]] <- spike_timing[[i]] %>%
@@ -318,7 +318,7 @@ wrangle_data <- function(data, x, y, fps, smooth, smooth.cons, invert, which, rm
                # threshold = threshold,
                inverted = if_else(invert == TRUE & i %in% which, "Yes", "No", missing="No"),
                rm.duplicates = rm.duplicates,
-               min.height = min.height,
+               outlier.sd = outlier.sd,
                removed = if_else(remove == '', remove, "none")
         )
     metadata <- bind_rows(metadata, current.metadata)
