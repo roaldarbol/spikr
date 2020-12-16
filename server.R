@@ -117,6 +117,7 @@ shinyServer(function(input, output) {
                  # threshold = input$threshold,
                  # thres.type = input$thresholdtype,
                  remove = input$manual.remove,
+                 best = input$best,
                  info = input$expID)
       )
   })
@@ -131,7 +132,7 @@ shinyServer(function(input, output) {
                       xvar = input$xvar,
                       yvar = input$yvar)
     if (isolate(input$smooth) == TRUE){
-      smooth_fig <- spike_plot(data = wrangled_data()[2], 
+      smooth_fig <- spike_plot(data = wrangled_data()[2],
                           xvar = input$xvar,
                           yvar = input$yvar)
       figure <- ggpubr::ggarrange(raw_fig, smooth_fig, nrow = 2, ncol = 1)
@@ -141,21 +142,16 @@ shinyServer(function(input, output) {
     return(figure)
   })
   
-  # power <- reactive({
-  #   power <- power_plot(data = wrangled_data()[2],
-  #                       xvar = ,
-  #                       yvar = 'yvar',
-  #                       fps = input$rate)
-  #   return(power)
-  # })
-  
   output$plot <- renderPlot({
     figure()
   })
   
-  # output$power <- renderPlot({
-  #   power()
-  # })
+  output$plotly <- renderPlotly({
+    plotly::ggplotly(spike_plot(data = wrangled_data()[1], 
+               xvar = input$xvar,
+               yvar = input$yvar))
+  })
+  
   
   # Elements generated for export with downloadButton ----
   name <- reactive({

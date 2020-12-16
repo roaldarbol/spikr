@@ -26,14 +26,14 @@ smooth_it <- function(data, xvar, yvar, smooth.cons){
 }
 
 
-wrangle_data <- function(data, x, y, fps, smooth, smooth.cons, invert, which, rm.duplicates, outlier.sd, threshold, thres.type, remove, info) {
+wrangle_data <- function(data, x, y, fps, smooth, smooth.cons, invert, which, rm.duplicates, outlier.sd, threshold, thres.type, remove, best, info) {
   
   dataFiles <- data
 
   # if (dev == TRUE){
-  #   workdir <- '/Users/roaldarbol/Documents/nivenlab/drosophila/Data/15-03-20_exp2_part3_WT_CyD_min'
+  #   workdir <- '/Users/roaldarbol/Documents/nivenlab/drosophila/'
   #   setwd(workdir)
-  #   dataFiles <- lapply(Sys.glob(sprintf("*.csv")), read.csv)
+  #   dataFiles <- lapply(Sys.glob(sprintf("templong.csv")), read.csv)
   #   x <- 'Time'
   #   y <- 'Kurt'
   #   fps <- 23.7
@@ -261,8 +261,23 @@ wrangle_data <- function(data, x, y, fps, smooth, smooth.cons, invert, which, rm
       mutate(spike_rate = 1/(peak_time - lag(peak_time)))
   }
   
-  
-
+  # Function for selecting the best 10 seconds
+  if (best == TRUE){
+    for (i in 1:length(spike_timing)){
+      temp.df <- data.frame(df.Smooth[[i]]$xvar)
+      names(temp.df) <- 'peak_time'
+      temp.df <- merge(temp.df, spike_timing[[i]], by = 'peak_time', all = TRUE)
+      temp.df <- temp.df[c('peak_time', 'spike_rate')]
+      starting <- which.min(rollsd(temp.df$spike_rate, 10*fps)) / fps
+      stopping <- starting + 10
+      spike_timing[[i]] <- spike_timing[[i]] %>%
+        filter(peak_time > starting & peak_time < stopping)
+      df.Smooth[[i]] <- df.Smooth[[i]] %>%
+        filter(xvar > starting & xvar < stopping)
+      dataFiles[[i]] <- dataFiles[[i]] %>%
+        filter(xvar > starting & xvar < stopping)
+    }
+  }
   
   # Spike summary list ----
   for (i in 1:length(spike_timing)){
@@ -271,7 +286,8 @@ wrangle_data <- function(data, x, y, fps, smooth, smooth.cons, invert, which, rm
         summarise(SpikeRate_mean = mean(spike_rate, na.rm = TRUE),
                   SpikeRate_SD = sd(spike_rate, na.rm = TRUE),
                   HalfWidth_mean = mean(half_width, na.rm = TRUE),
-                  HalfWidth_SD = sd(half_width, na.rm = TRUE)
+                  HalfWidth_SD = sd(half_width, na.rm = TRUE),
+                  n_Spikes = n()
         ) %>%
         mutate(minute = i)
       spike_summary <- bind_rows(spike_summary, spike_summary.list[[i]])

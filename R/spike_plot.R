@@ -8,21 +8,22 @@ spike_plot <- function(data, xvar, yvar, threshold){
   df.All <- df.All %>%
     mutate(peak = if_else(peak == 0, NA_real_, peak))
   
+  xmin <- floor(min(df.All$xvar))
   xmax <- max(df.All$xvar)
   ymax <- max(df.All$yvar)
   
-    ggplot(df.All, aes(x=xvar, y = yvar)) +
+    plot <- ggplot(df.All, aes(x=xvar, y = yvar)) +
       geom_line() +
-      #geom_rug(aes(peak), sides = "b") +
+      # #geom_rug(aes(peak), sides = "b") +
       geom_vline(data = df.All, aes(xintercept = peak),
                  alpha = .5,
                  colour = "orange",
                  linetype = 2,
                  show.legend = FALSE) +
-      scale_x_continuous(limits = c(0,xmax),
-                         breaks = seq(0,xmax,1)
+      scale_x_continuous(limits = c(xmin,xmax),
+                         breaks = seq(xmin,xmax,1)
       ) +
-      # scale_colour_distiller(palette = 'Spectral', guide = FALSE) +
+      # # scale_colour_distiller(palette = 'Spectral', guide = FALSE) +
       labs(x = "Time (s)",
            y = paste("Image", yvar, "/ Cardiac contraction"),
            title = "") +
@@ -35,8 +36,8 @@ spike_plot <- function(data, xvar, yvar, threshold){
             legend.position = c(.27,.84),
             axis.line.x.bottom = element_line(colour = "black", size = .7),
             axis.line.y.left = element_line(colour = "black", size = .7),
-            text = element_text(family = "serif", size = 10),
-            aspect.ratio = 4/5
-      ) -> plot
+            text = element_text(family = "serif", size = 10)#,
+            #aspect.ratio = 4/5
+      )
   return(plot)
 }

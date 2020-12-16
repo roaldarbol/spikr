@@ -24,8 +24,13 @@ top <- fluidRow(
                                          column(width = 12,
                                                 conditionalPanel(condition="input.goButton",
                                                                  plotOutput("plot")
+                                                                 
                                                 )
                                          )
+                                ),
+                                tabPanel('Interactive Plot',
+                                         column(width = 12,
+                                                plotlyOutput('plotly'))
                                 ),
                                 tabPanel("Summary",
                                          column(width = 12,
@@ -72,7 +77,8 @@ middle <- fluidRow(
                                 checkboxInput("duplicates", "Remove duplicates?", TRUE),
                                 checkboxInput("smooth", "Smooth data?", TRUE),
                                 checkboxInput("invert", "Needs Inverting", FALSE),
-                                checkboxInput("manual", "Manual Removal", FALSE)
+                                checkboxInput("manual", "Manual Removal", FALSE),
+                                checkboxInput("best", "Best 10 sec?", FALSE)
                                 
                                 
                             ),
