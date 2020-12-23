@@ -11,7 +11,7 @@ shinyServer(function(input, output) {
   })
   
   output$introduction <- renderUI({
-    includeMarkdown("Rmd/Introduction.Rmd")
+    includeMarkdown("README.Rmd")
   })
   
   # Observed events ----
