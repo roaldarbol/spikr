@@ -15,5 +15,8 @@ is_online = curl::has_internet()
 
 # spikr
 [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.4389445.svg)](https://doi.org/10.5281/zenodo.4389445)
+  
+A versatile R Shiny application for spike detection in any time-series.  
+More information coming soon...
 
-spikr: a versatile R Shiny application for spike detection in any time-series.
+The app can be accessed online [here](https://roaldarbol.shinyapps.io/spikr/).
