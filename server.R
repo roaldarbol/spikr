@@ -35,6 +35,7 @@ shinyServer(function(input, output) {
   #   )
   # })
   
+  # Cool alert when submitting!
   observeEvent(input$goButton, {
     shinyalert(
       title = "Processing...",
